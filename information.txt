@@ -1,0 +1,28 @@
+     ***HASHING FILE THAT IS ALREADY MADE***
+_________________________________________________
+#1 initalize the file [required]
+---> myHash.initalizeHashFile(file, "read")
+
+_________________________________________________
+#2 can get the file size [optional]
+---> myHash.fileSize()
+
+_________________________________________________
+#3 hash the file stream
+---> myHash.hashFileStream()
+
+_________________________________________________
+#4 get the hash 
+---> myHash.getFileHash()
+
+_________________________________________________
+
+
+
+sketch files used to creat and merge into library file <generateHash.h>
+
+--> serialCommands [used to test commands from the GUI shooting target interface to the SAMD21 board]
+--> ReadWriteSDBinary [used for reading the binary file and hashing]
+--> serialArrayVisualBasic [used for testing sending the file along with file size/hash from computer]
+
+

@@ -1,0 +1,81 @@
+
+SEND HASH AND BINARY FILE DATA TO REMOTE UNIT:
+
+
+ 1-4-2025 [TESTED/COMPLETE]  1-7-2024   File transfer from the computer to ARM chip
+1-12-2025 [TESTED/COMPLETE] 1-12-2024   Function added to ptr to array 
+2-11-2025 [TESTED/COMPLETE] 2-26-2025   Packets sent from remote to transmitter, re extracted from file 
+2-26-2025 [PENDING........] ---------   Send the dropped packets back to the remote board
+3-16-2025 [PENDING........] ---------   Rebuild binary file when packets are dropped
+ 
+CURRENT:  
+1-12-2025 [IN-PROGRESS] 0-0-0000
+
+
+
+file's opened for conversion.  
+fileArrayBreakupData    [used to read from the SD card and put into chunks, this needs to be implemented into sendBinaryFileRemote]
+sendBinaryFileRemote    [used to test the sending of hash data along with file data to the receiveBinaryFileRemote]
+receiveBinaryFileRemote [used to receive data from the sendBinaryFileRemote, to make sure that I break the dat back up and then 
+			 write to the SD card accordingly] ***will have to figure out the SD card write as my receiving RF doesn't
+			 currently have SD card hooked up ***
+
+generateHash library    [used for testing, the last thing that I did was create a function that returns a pointer the _arrayHash
+			 which I will then be able to memcpy to the array within the structure that is sent with the binary file to
+		         the receiver]
+
+CURRENT:  
+1-14-2025 [IN-PROGRESS] 0-0-0000
+
+	DESCRIPTION: currently working on being able to send the binary data to a test board from a SAMD21proRF module. I'm able to send
+		     the file and transfer rates are atleast 97.7% but there are some packets that are getting dropped so I'm implementing
+		     a counter on the receive side along with a counter on the send side which is then sent with the binary data to then 
+		     cross check each other, from there we can then make note of which packets we didnt receive and then make a seperate
+		     request to get the data again. Special consideration is going to have to be made when writing to the SD card on the 
+		     receive side and that is to make sure that a check for completeness is done or if data is lacking we are gonna have
+		     to retrieve the remaining data and write to seperate file and then merege the two at the correct locations. Once this
+		     is done, confirm file size length and then hash the data, and compare hashes.
+
+   UPDATE 1-19-2025: Working on adding it to where we check to see how far off the incoming packet count and the internal packet count are
+		     off, if its more than 1 then we need to be able to address this and add it to the resendPacket array 
+
+	*** Working on line 140 within the recieveBinaryFileRemote ***
+   
+   UPDATE 1-27-2025: Have tested the previous statement using visual studio code and writing some code to test for packet seperation that is 
+		     greater than 1, running the test it put the dropped packets into the dropped[]and then on the completion of the final 
+		     iteration it was equal to the incoming packet so there was no need to make them equal at the end of the execution of the
+		     for loop. 
+
+		CODE: Added code on the receive side to send to the transmit side, currently blocked out until I can run through and visually 
+		      test it. 
+	    [TESTED] Code seems to work the way it is intended initially, all the packets that are dropped are then stored in the droppPacket 
+		     array and from there after the file is done sending all of the dropped packets are then sent in a message back to the 
+		     transmitter. [THIS IS AS FAR AS THE CODE GOES FOR THIS TEST]
+
+   UPDATE 2-11-2025: [STARTED]
+		     Currently working on the transmit side and dealing with the code for the dropped packets that are received. First have to 
+		     open the file and then find the correct index for the packet dropped, [EXAMPLE: packet 35 dropped/ (35-1) * 200 = 6800 
+		     is the packet index[0] + 200 = 199/ packet end
+   
+   UPDATE 2-26-2025: [IN PROGRESS] [PENDING.... TEST OF SENDING PACKETS BACK TO REMOTE BOARD] 
+		      Was successfuly able to resend the dropped packets back to the transmitter where the binary file was opened and the dropped
+		      packets reindexed within to extract the correct binary data to then resend  
+
+   UPDATE 3-16-2025: [IN PROGRESS] 
+		      Was able to write to a SD card, had to make some modifications to the receiveBinaryFile [WRITE TO SD CARD] BLOCK - added
+		      if (count <= uint32_t(hashData.hash[1] << 8 | hashData.hash[2]) which checks the byte count for the incoming file size
+		      stops writing to the file once we have reached the file size. It is key that the hash and file size is sent. 
+		      Also added code within the setup that checks for the runBin.bin file and deletes it each time, would need to do a reset 
+		      option within the main loop. 
+		     [hash from file sent]    = f61ddb0ff8f28dd4c6ee96fcc6ca9ae5599734d5c97d7587b4c7ea74d4445e6a
+		     [has from file received] = f61ddb0ff8f28dd4c6ee96fcc6ca9ae5599734d5c97d7587b4c7ea74d4445e6a
+		     [---PERFECT MATCH!---]
+
+
+//------------------------------//
+//     FILE TRANSFER SPECS      //
+//------------------------------//
+
+46.47 seconds total time to transmit binary file size of 26872 = 214,976 bits
+214,976 / 46.474 = 4,625.726 bits per second = 578.21 Bytes per second
+1 packet dropped..

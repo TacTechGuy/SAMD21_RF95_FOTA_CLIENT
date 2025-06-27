@@ -1,0 +1,334 @@
+/*
+
+      Author: Ethan Dechant
+Date created: [Start] October 28th, 2024   
+
+
+This Example show how to write to an SD card from the computer, hash the 
+data and then check the hash with what is sent. The computer initally hashes
+the file when it opens it and then enbeds this hash in an array that is 35 bytes
+long, out of the 35 bytes the first three indexes, index[0] is't used and index[1]
+& index[2] are used to get the file size while indexes[3-34] are used to extract
+the hash that was sent by the computer. Once the filezie is reached (subracting the 
+bytecount) from the array[35] size of 35 will then allow for a condition to close()
+the SD file which handles the writing of the file. Hasing the file once it is made, 
+we need to make another call but this time to read from the file and then we can 
+use the function hashFileStream() to extract the hash from the newly created file.   
+
+STEPS:
+1. make an object for the hash class
+2. initalize SD File [file name, read or write]   #file name CANNOT exceed 8 characters
+3. reinitalize the SD file for the opposite [file name, read or write] opposite of before
+4. hash the file and or get the incoming hash
+
+STEPS:
+1. hash myHash
+2. myHash.initalizeHashFile("myFile.bin", "write")
+3. myHash.initalizeHashFile("myFile.bin", "read")
+4. [Internal] myHash.hashFileStream()  [External] myHash.getIncomingFileHash()
+
+
+updates:
+
+0-0-0000 [COMPLETE/TESTED] 0-0-0000
+
+*/
+
+#include "wiring_digital.h"
+#include "SD.h"
+#include "USB/USBAPI.h"
+#include "generateHash.h"
+
+
+
+//Single function to connect and either open the file or make the file READ/WRITE
+bool hash::initalizeHashFile(String file, String readWrite) {
+  _file = file;
+
+  if (readWrite.equalsIgnoreCase(_read)) {
+    //set the _readWriteFlag to 0x01
+    _readWriteFlag = 0x01;
+  } else if (readWrite.equalsIgnoreCase(_write)) {
+    //set the _readWriteFlag to 0x02
+    _readWriteFlag = 0x02;
+  } else {
+    _readWriteFlag = 0xFF;
+  }
+
+  bool initalized = true;
+
+
+  //Make sure that we are connected to the SD card
+  if (!SD.begin(4)) {
+    initalized = false;
+  }
+
+  //Lets open the file for reading if we receive an Ox01
+  if (_readWriteFlag == 0x01) {
+    _myFile = SD.open(_file);
+  } else if (_readWriteFlag == 0x02) {
+    SerialUSB.println("making file...");
+    //Check to see if there is a file by that name already if so delete it
+    if (SD.exists(_file)) {
+      SD.remove(_file);
+    }
+    _myFile = SD.open(_file, FILE_WRITE);
+  }
+
+  //SerialUSB.print("read write flag: ");
+  //SerialUSB.println(_readWriteFlag);
+  return initalized;
+}
+
+
+// BufferSize is the amount of data that we are execpting to pad the incoming array
+void hash::writeFile() {
+
+
+  while (SerialUSB.available() > 0) {
+    _value = SerialUSB.read();
+
+    //changed from 2 --> 34 because we added 32 bytes
+    if ((_b <= 34) && (!_fileData)) {
+      _arrayHash[_b] = _value;
+      if (_b == 34) {
+
+        //Calculate the file size from incoming data
+        _fileSize = int(_arrayHash[1] << 8) | _arrayHash[2];
+        _fileData = true;
+        //SerialUSB.println(String(_fileSize));
+      }
+      _b++;
+      //SerialUSB.println("within b if statement");
+      // myFile.write(value);
+    } else {
+      _myFile.write(_value);
+      //SerialUSB.println("else statement");
+    }
+    //changed from 3 --> 35 because we again added 32 bytes
+    if ((_byteCount - 35) == _fileSize) {
+      digitalWrite(13, HIGH);
+      _dataFlag = true;
+    }
+    _byteCount++;
+  }
+
+
+  if (_dataFlag) {
+    if (_myFile) {
+      _myFile.close();
+    }
+    _dataFlag = false;
+    _fileTransferComplete = true;
+  }
+}
+
+bool hash::transferComplete() {
+  return _fileTransferComplete;
+}
+
+String hash::getIncomingFileHash() {
+  String incomingHash = "";
+  String _arrayHashLength = "";
+
+  for (int i = 3; i < sizeof(_arrayHash); i++) {
+    _arrayHashLength = String(_arrayHash[i], HEX);
+    if (_arrayHashLength.length() == 1) {
+      String modified = "0";
+      modified += _arrayHashLength;
+      incomingHash += modified;
+    } else {
+      incomingHash += _arrayHashLength;
+    }
+    //incomingHash += String(_arrayHash[i], HEX);
+  }
+  return incomingHash;
+}
+
+void hash::readFile() {
+  _myFile = SD.open(_file);
+
+  if (_myFile) {
+    SerialUSB.println("inside read file function");
+    while (_myFile.available()) {
+
+      uint8_t stream = _myFile.read();
+      SerialUSB.println(stream, BIN);
+    }
+    _myFile.close();
+  }
+}
+
+String hash::getFileHash() {
+  return _hashValue;
+}
+
+
+// Hashes the file and then returns the hash
+void hash::hashFileStream() {
+  unsigned int _count = 0;
+  uint8_t _bitShiftCount = 0;
+  uint32_t _hashBank = 0;
+  unsigned int _hashBankCount = 0;
+  uint32_t _hashArray[9] = { 0, 0xB9D1FBFD, 0xFF206483, 0xC829A0B9, 0x832459EC, 0xEFE83F42, 0xEFB7A415, 0xDF4BD379, 0xE21B5202 };
+  uint8_t convertedHashArray[32];
+
+  if (_myFile) {
+    _hashValue = "";  //reset the hash
+    while (_myFile.available()) {
+
+      for (int i = 0; i < 4; i++) {
+
+
+
+        uint8_t stream = _myFile.read();
+        //fileArray[count] = stream;
+        switch (_bitShiftCount) {
+          case 0:
+            _hashBank = stream << 24; /*SerialUSB.print("The hashbank is: "); SerialUSB.println(hashBank, BIN);*/
+            break;
+          case 1:
+            _hashBank |= stream << 16; /* SerialUSB.print("The hashbank is: ");  SerialUSB.println(hashBank, BIN);*/
+            break;
+          case 2:
+            _hashBank |= stream << 8; /* SerialUSB.print("The hashbank is: "); SerialUSB.println(hashBank, BIN);*/
+            break;
+          case 3:
+            _hashBank |= stream; /*SerialUSB.print("The hashbank is: "); SerialUSB.println(hashBank, BIN);*/
+            break;
+        }
+        // SerialUSB.print("count: ");
+        // SerialUSB.print(_count);
+        // SerialUSB.print("\t");
+        // SerialUSB.println(stream);
+        _count++;
+        _bitShiftCount++;
+
+
+        if ((_count % 4) == 0) {
+          // Increment the hashBankCount
+          _hashBankCount++;
+
+          //Reset the bitShiftCount
+          _bitShiftCount = 0;
+          // this is where we take 4 byte chunks
+          //SerialUSB.print("hashBankCount is: ");
+          //SerialUSB.println(hashBankCount);
+
+
+          //this will be used to control which 32 bit integer gets the current data
+          switch (_hashBankCount) {
+            case 1:
+              _hashArray[1] = (_hashBank != 0) ? _hashBank ^= _hashArray[1] : _hashBank = 0xC5A14356;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[1], BIN);
+              break;  //
+            case 2:
+              _hashArray[2] = (_hashBank != 0) ? _hashBank ^= ~_hashArray[2] : _hashBank = 0x84014006;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[2], BIN);
+              break;
+            case 3:
+              _hashArray[3] = (_hashBank != 0) ? _hashBank ^= _hashArray[3] : _hashBank = 0x634DE5A3;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[3], BIN);
+              break;  //
+            case 4:
+              _hashArray[4] = (_hashBank != 0) ? _hashBank |= ~_hashArray[4] : _hashBank = 0x92F80685;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[4], BIN);
+              break;
+            case 5:
+              _hashArray[5] = (_hashBank != 0) ? _hashBank ^= ~_hashArray[5] : _hashBank = 0x1FEE62AD;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[5], BIN);
+              break;
+            case 6:
+              _hashArray[6] = (_hashBank != 0) ? _hashBank |= ~_hashArray[6] : _hashBank = 0xDA4AC801;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[6], BIN);
+              break;
+            case 7:
+              _hashArray[7] = (_hashBank != 0) ? _hashBank ^= _hashArray[7] : _hashBank = 0x6D800AE8;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[7], BIN);
+              break;  //
+            case 8:
+              _hashArray[8] = (_hashBank != 0) ? _hashBank |= ~_hashArray[8] : _hashBank = 0xD46DC441;
+              _hashBank = 0;
+              //SerialUSB.println(_hashArray[8], BIN);
+              break;
+          }
+          // Reset the hashBankCount back to zero
+          if (_hashBankCount == 8) {
+            _hashBankCount = 0;
+          }
+        }
+      }
+    }
+    _myFile.close();
+  } else {
+    SerialUSB.println("error opening file!");
+  }
+  String hashValue = "";  //store the hash
+  uint8_t hashSize = 0;   //store the hashsize
+  //lets print the hashArray
+  uint8_t start = 0;
+
+  //used to convert from uint32_t array to a uint8_t array
+  for (int i = 1; i < 9; i++) {
+    for (int j = 1; j <= 4; j++) {
+      switch (j) {
+        case 1:
+          convertedHashArray[start] = _hashArray[i] >> 24 & 0xFF;
+          start++;
+          break;
+        case 2:
+          convertedHashArray[start] = _hashArray[i] >> 16 & 0xFF;
+          start++;
+          break;
+        case 3:
+          convertedHashArray[start] = _hashArray[i] >> 8 & 0xFF;
+          start++;
+          break;
+        case 4:
+          convertedHashArray[start] = _hashArray[i] & 0xFF;
+          start++;
+          break;
+      }
+    }
+  }
+  String arrayHashLength = "";
+  //*** NEW HASH ARRAY TO STRING CONVERSION ***
+  //converted hash array to String with 2 character representation
+  for (int i = 0; i < sizeof(convertedHashArray); i++) {
+    arrayHashLength = String(convertedHashArray[i], HEX);
+
+    if (arrayHashLength.length() == 1) {
+      String modified = "0";
+      modified += arrayHashLength;
+      _hashValue += modified;
+    } else {
+      _hashValue += arrayHashLength;
+    }
+  }
+  //This is to make sure that the hashValue is the same as the array print out
+  //SerialUSB.println("\n" + hashValue);
+
+
+  //lets print the size of the hash also
+  //SerialUSB.print("hash size: ");
+  // SerialUSB.println(hashSize);
+
+  // SerialUSB.print("this is the hash length: ");
+  // SerialUSB.println(stringLength);
+
+  //No longer did a String return and did a seperate function to handle the hash return
+  //return _hashValue;
+}
+
+//return a 32 unsigned value
+uint32_t hash::fileSize() {
+
+  return _myFile.size();
+}
