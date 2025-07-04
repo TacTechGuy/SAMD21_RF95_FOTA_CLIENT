@@ -1,19 +1,19 @@
      ***HASHING FILE THAT IS ALREADY MADE***
 _________________________________________________
 #1 initalize the file [required]
----> myHash.initalizeHashFile(file, "read")
+---> firmwareUpdate.initalizeHashFile(file, "read")
 
 _________________________________________________
 #2 can get the file size [optional]
----> myHash.fileSize()
+---> firmwareUpdate.fileSize()
 
 _________________________________________________
 #3 hash the file stream
----> myHash.hashFileStream()
+---> firmwareUpdate.hashFileStream()
 
 _________________________________________________
 #4 get the hash 
----> myHash.getFileHash()
+---> firmwareUpdate.getFileHash()
 
 _________________________________________________
 

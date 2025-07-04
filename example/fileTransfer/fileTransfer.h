@@ -32,7 +32,7 @@ STEPS:
 updates:
 
 0-0-0000 [COMPLETE/TESTED] 0-0-0000
-1-4-2025 [TESTED/COMPLETE] 1-7-2024   
+1-4-2025 [TESTED/COMPLETE] 1-7-2025   
   DESCRIPTION: Have the ability to control file transfer by using a command
                structure, I was also able to pack all of functions of the file
                transfer within the receiveCommand() which allows for better 
@@ -52,7 +52,7 @@ updates:
       ---- NEXT STEPS ARE TO FIGURE OUT HOW TO BREAK THE FILE UP AND SEND -----
       ******  WRITE TO SPI FLASH MEMORY OR CREATE AN ARRAY OF 20K TO DO THE UPLOADING ******
                                              
-1-12-2025 [TESTED/COMPLETE] 1-7-2024    
+1-12-2025 [TESTED/COMPLETE] 2-6-2025    
   FUNCTIONS ADDED: getFileHashPtr();
   DESCRIPTION: Added the function to be able to return the ptr of the _arrayHash so that way 
                from outside the library we are able to memcpy from that array to an array
@@ -67,21 +67,56 @@ updates:
                into where the command coming from the computer is "upload remote". I need to add another
                method to handle the actual sending of the file remotely. Also need to change file names 
                and class name to better reference what the class is ment to do. 
+               [**NOTE**] file names changed to fileTransfer, Class name changed to firmware 6-28-25
+
+
+6-28-2025 [IN PROGRESS...] 
+  DESCRIPTION: Converting the sendBinaryFileRemote and the receiveBinaryFileRemote into the fileTransfer 
+               class. 
+               Variable, methods, structures to add to class:
+                     [] uint8_t incomingBuffer[239]
+                     [] struct dropped
+                     [] struct fileData
+                     [] uint8_t fileDataBuf[sizeof(fileData)]
+                     [] struct binaryData
+                                    ---> [] binaryData.iterationCount = myFile.size() / sizeof(binaryData.sendData)
+                                         [] binaryData.leftover = myFile.size() % sizeof(binaryData.sendData)
+                     [] uint8_t binaryDataBuf[sizeof(binaryData)]
+                     [] method resendDroppedPackets(uint8_t *droppedPackets, uint8_t index)
+                     [] 
+7-1-2025 [IN PROGRESS....] 0-0-0000 
+   [DESCRIPTION] working on the functionality of the fileTransferSend
+                 code, incorporating it into the fileTransfer class to
+                 allow for faster implementation. Everything so far has
+                 been intregrated other than the radio code for receiving
+                 data which will not be contained within the fileTransfer class.
+                 The myDriver.send() and myDriver.waitPacketSent() methods
+                 of the rf95 library implemented the use of scope resolution
+                 within the class to define new methods so I can call the 
+                 rf95 specific methods from both inside the class and outside, 
+                 in the main loop.                      
 */
 
-#ifndef _generateHash_h_
-#define _generateHash_h_
 
-#include <Arduino.h>
+
+#ifndef _fileTransfer_h_
+#define _fileTransfer_h_
+
+
 #include <SPI.h>
 #include <SD.h>
-
-
+#include <RH_RF95.h>
+#include <RHEncryptedDriver.h>
+#include <Speck.h>
 
 // My hash class
-class hash {
+class firmware {
 public:
+  Speck myCipher;
+  RH_RF95 rf95;
+  RHEncryptedDriver myDriver;
 
+  firmware(uint8_t csPin, uint8_t interruptPin);
   // Start the SD card and then
   bool initalizeHashFile(const char file[], const char readWrite[]);
 
@@ -92,7 +127,7 @@ public:
   void writeFile();
 
   // Used as the main command block for receiving input from computer
-  void receiveCommand();
+  void receiveCommandLocal();
 
   // Just a flag to let us know when the transfer is complete
   bool transferComplete();
@@ -104,49 +139,99 @@ public:
   void hashFileStream();
 
   // Used to convert just the hash array to String
-  void convertHashArray2String(uint8_t * arrayToConvert, uint8_t size);
+  void convertHashArray2String(uint8_t* arrayToConvert, uint8_t size);
 
   //Will return the _hashValue
   String getFileHash();
 
   //Returns a pointer to the _arrayHash so it can then be memcpy to the hash --> fileData.hash
-  uint8_t * getFileHashPtr();
+  uint8_t* getFileHashPtr();
 
   // Retreives the hash from the inbound array
   String getIncomingFileHash();
 
-  // Used to reset variables  in order to be able to send files consecutively 
+  // Used to reset variables  in order to be able to send files consecutively
   void resetFileWriteVariables();
 
-  bool _fileTransferComplete = false;
+  void packetDataAvailable_Sender();
 
-  bool _pushBinaryRemote = false;
+  void packetDataAvailable_Receiver();
+
+  // ADDED METHODS / VARIABLES ** Methods defined outside of the cpp file **
+  uint8_t incomingBuffer[239];
+
+  //Structures
+  struct {
+    uint8_t size = 0;
+    uint8_t packetIndex = 0;
+    uint8_t resendPackets[20] = { 0 };
+  } dropped;
+
+  uint8_t droppedPacketBuf[sizeof(dropped)] = { 0 };
+
+  struct {
+    uint8_t size = 210;
+    bool droppedPacketFlag = false;
+    uint16_t droppedPacket = 0;
+    uint16_t packetCount = 0;
+    uint16_t iterationCount = 0;
+    uint8_t leftOver = 0;
+    uint8_t sendData[200] = { 0 };
+  } binaryData;
+  //37 bytes added to the actual size  by the myDriver.
+  uint8_t binaryDataBuf[sizeof(binaryData)] = { 0 };
+
+  struct {
+    uint8_t size = 0;
+    uint8_t hash[35] = { 0 };
+    bool transferComplete = false;
+    bool transferBegin = false;
+    uint8_t remoteStatus = 0x00;
+    float versionControl = 0;
+  } fileData;
+
+  // USED WITH THE RF_95 RADIO TO SEND DATA
+  uint8_t fileDataBuf[sizeof(fileData)] = { 0 };
+
 
 
 private:
-  //This will be called once the hashes match
-  void prepareForFileUpload();
+  //Objects
+  File _myFile;
+
+  // Variables
+  uint8_t _stream;
+  uint32_t _count = 1;
+  bool _pushBinaryRemote = false;
+  bool _fileTransferComplete = false;
+
+  // Used for iterating through the binary file
+  uint8_t _b = 0;
+  int _byteCount = 1;
   uint8_t _value = 0;
   int _fileSize = 0;
-  int _byteCount = 1;
-  bool _dataFlag, _fileData = false;
   uint8_t _arrayHash[35];
-  uint8_t _b = 0;
+  bool _dataFlag, __fileInfo = false;
 
-  // Timer
-  unsigned long currentTime, previousTime, delay = 10000;
-
-
-
-
+  // File and Hash data
   String _hashValue = "";  //store the hash
-  File _myFile;
   String _file;
   uint8_t _readWriteFlag = 0xFF;
 
+  // Used for handling incoming commands
   String _command = " ";
   int _inValue = 0;
   uint8_t _commandMain = 0;
+
+  // Timer, handles the timeout for the file transfer
+  unsigned long _previousTime, _delay = 10000;
+
+
+  // Methods
+  void _prepareForFileUpload();
+
+  // Passes a pointer of the dropped packet array to the arguement
+  void _resendDroppedPackets(uint8_t* droppedPackets, uint8_t index);
 };
 
 #endif
