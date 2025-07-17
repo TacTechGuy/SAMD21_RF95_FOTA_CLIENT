@@ -41,12 +41,13 @@ updates:
 uint8_t RFM_95CS = 12;
 uint8_t RFM_95INT = 6;
 const int RFM_95RST = 7;  // NOT USED
+uint8_t pinIntSD = 4;
 double frequency = 921.2;
 
 unsigned char encryptKey[16] = **REDACTED**;
 
 // Object for the firmware Class [chip select, interrupt] pins
-firmware firmwareUpdate(RFM_95CS, RFM_95INT);
+fileTransfer firmwareUpdate(RFM_95CS, RFM_95INT, pinIntSD,"file1.bin");
 
 /* FILE NAME CAN ONLY BE 8 CHARACTERS LONG*/
 //String file = "TEST22.bin";
@@ -108,6 +109,7 @@ void loop() {
   firmwareUpdate.receiveCommandLocal();
   // --> Serial commands
   // --> block to send the binary file
+
 
   //--------------------------//
   // HANDLES RF COMMUNICATION //

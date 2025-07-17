@@ -97,77 +97,70 @@ updates:
                  in the main loop.                      
 */
 
-
-
 #ifndef _fileTransfer_h_
 #define _fileTransfer_h_
 
 
 #include <SPI.h>
 #include <SD.h>
+#include <stdint.h>
 #include <RH_RF95.h>
 #include <RHEncryptedDriver.h>
 #include <Speck.h>
 
 // My hash class
-class firmware {
-public:
-  Speck myCipher;
-  RH_RF95 rf95;
-  RHEncryptedDriver myDriver;
+class fileTransfer {
 
-  firmware(uint8_t csPin, uint8_t interruptPin);
-  // Start the SD card and then
-  bool initalizeHashFile(const char file[], const char readWrite[]);
+private:
+  //---------//
+  // OBJECTS //
+  //---------//
+  File _myFile;
 
-  // Read from the file
-  void readFile();
+  //-----------//
+  // VARIABLES //
+  //-----------//
+  uint8_t _stream;
+  uint32_t _count = 1;
+  bool _pushBinaryRemote = false;
+  bool _fileTransferComplete = false;
 
-  // Write to a file
-  void writeFile();
+  uint8_t index;
 
-  // Used as the main command block for receiving input from computer
-  void receiveCommandLocal();
+  // pins
+  uint8_t _SDpin;
 
-  // Just a flag to let us know when the transfer is complete
-  bool transferComplete();
+  // Used for iterating through the binary file
+  uint8_t _b = 0;
+  int _byteCount = 1;
+  uint8_t _value = 0;
+  int _fileSize = 0;
+  uint8_t _arrayHash[35];
+  bool _dataFlag, __fileInfo = false;
 
-  // Returns the size of the file to be hashed
-  uint32_t fileSize();
+  // File and Hash data --> stream
+  char _hashValue[65];  //store the hash
+  //String _hashValue = " ";  //store the hash
+  char _file[32];
+  uint8_t _readWriteFlag = 0xFF;
 
-  //This is used to input
-  void hashFileStream();
+  // Used for handling incoming commands 'serially'
+  //String _command = " ";
+  bool _readCommand = false;
+  int _inValue = 0;
+  uint8_t _commandMain = 0;
 
-  // Used to convert just the hash array to String
-  void convertHashArray2String(uint8_t* arrayToConvert, uint8_t size);
+  // Timer, handles the timeout for the file transfer
+  unsigned long _previousTime, _delay = 10000;
 
-  //Will return the _hashValue
-  String getFileHash();
-
-  //Returns a pointer to the _arrayHash so it can then be memcpy to the hash --> fileData.hash
-  uint8_t* getFileHashPtr();
-
-  // Retreives the hash from the inbound array
-  String getIncomingFileHash();
-
-  // Used to reset variables  in order to be able to send files consecutively
-  void resetFileWriteVariables();
-
-  void packetDataAvailable_Sender();
-
-  void packetDataAvailable_Receiver();
-
-  // ADDED METHODS / VARIABLES ** Methods defined outside of the cpp file **
-  uint8_t incomingBuffer[239];
-
-  //Structures
+  //------------//
+  // STRUCTURES //
+  //------------//
   struct {
     uint8_t size = 0;
     uint8_t packetIndex = 0;
-    uint8_t resendPackets[20] = { 0 };
+    uint8_t resendPackets[200] = { 0 };
   } dropped;
-
-  uint8_t droppedPacketBuf[sizeof(dropped)] = { 0 };
 
   struct {
     uint8_t size = 210;
@@ -178,8 +171,6 @@ public:
     uint8_t leftOver = 0;
     uint8_t sendData[200] = { 0 };
   } binaryData;
-  //37 bytes added to the actual size  by the myDriver.
-  uint8_t binaryDataBuf[sizeof(binaryData)] = { 0 };
 
   struct {
     uint8_t size = 0;
@@ -190,48 +181,64 @@ public:
     float versionControl = 0;
   } fileData;
 
-  // USED WITH THE RF_95 RADIO TO SEND DATA
-  uint8_t fileDataBuf[sizeof(fileData)] = { 0 };
+  //---------//
+  // BUFFERS //
+  //---------//
+  char buffer[8];                                     // USED FOR PRINTING PB[PROGRESS BAR] DATA
+  char incomingHash[65];
+  char incomingCommand[32];
+  uint8_t incomingBuffer[239];                        // INCOMING
+  uint8_t droppedPacketBuf[sizeof(dropped)] = { 0 };  // OUT-GOING
+  uint8_t binaryDataBuf[sizeof(binaryData)] = { 0 };  // OUT-GOING
+  uint8_t fileDataBuf[sizeof(fileData)] = { 0 };      // OUT-GOING
 
+  //---------//
+  // METHODS //
+  //---------//
+  // Write to a file
+  void _writeFile();
 
+  // Just a flag to let us know when the transfer is complete
+  bool _transferComplete();
 
-private:
-  //Objects
-  File _myFile;
+  // Used to convert just the hash array to String
+  void _convertHashArray2String(uint8_t* arrayToConvert, uint8_t size);
 
-  // Variables
-  uint8_t _stream;
-  uint32_t _count = 1;
-  bool _pushBinaryRemote = false;
-  bool _fileTransferComplete = false;
-
-  // Used for iterating through the binary file
-  uint8_t _b = 0;
-  int _byteCount = 1;
-  uint8_t _value = 0;
-  int _fileSize = 0;
-  uint8_t _arrayHash[35];
-  bool _dataFlag, __fileInfo = false;
-
-  // File and Hash data
-  String _hashValue = "";  //store the hash
-  String _file;
-  uint8_t _readWriteFlag = 0xFF;
-
-  // Used for handling incoming commands
-  String _command = " ";
-  int _inValue = 0;
-  uint8_t _commandMain = 0;
-
-  // Timer, handles the timeout for the file transfer
-  unsigned long _previousTime, _delay = 10000;
-
-
-  // Methods
-  void _prepareForFileUpload();
+  // Start the SD card and then
+  bool _initalizeHashFile(const char readWrite[]);
 
   // Passes a pointer of the dropped packet array to the arguement
   void _resendDroppedPackets(uint8_t* droppedPackets, uint8_t index);
+
+    // Used to reset variables  in order to be able to send files consecutively
+  void _resetFileWriteVariables();
+
+  //This is used to get the file hash after we have received it serially from the computer
+  void _hashFileStream();
+
+  // Used internally when hashing the file stream
+  void _getFileStreamHash(uint8_t* arrayToConvert);
+
+public:
+  Speck myCipher;
+  RH_RF95 rf95;
+  RHEncryptedDriver myDriver;
+
+  // Constructor
+  fileTransfer(uint8_t csPin, uint8_t interruptPin,uint8_t SD_pinInt,const char file[]);
+
+  // Read from the file
+  void readFile();
+
+  // Used as the main command block for receiving input from computer
+  void receiveCommandLocal();
+
+  // Retreives the hash from the inbound array
+  char * getIncomingFileHash();
+
+  void packetDataAvailable_Sender();
+
+  void packetDataAvailable_Receiver();
 };
 
 #endif

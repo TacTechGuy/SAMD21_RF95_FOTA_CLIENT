@@ -13,19 +13,19 @@ the hash that was sent by the computer. Once the filezie is reached (subracting 
 bytecount) from the array[35] size of 35 will then allow for a condition to close()
 the SD file which handles the writing of the file. Hasing the file once it is made, 
 we need to make another call but this time to read from the file and then we can 
-use the function hashFileStream() to extract the hash from the newly created file.   
+use the function _hashFileStream() to extract the hash from the newly created file.   
 
 STEPS:
-1. make an object for the firmware class
+1. make an object for the fileTransfer class
 2. initalize SD File [file name, read or write]   #file name CANNOT exceed 8 characters
 3. reinitalize the SD file for the opposite [file name, read or write] opposite of before
 4. hash the file and or get the incoming hash
 
 STEPS:
-1. firmware firmwareUpdate
+1. fileTransfer firmwareUpdate
 2. firmwareUpdate.initalizeHashFile("myFile.bin", "write")
 3. firmwareUpdate.initalizeHashFile("myFile.bin", "read")
-4. [Internal] firmwareUpdate.hashFileStream()  [External] firmwareUpdate.getIncomingFileHash()
+4. [Internal] firmwareUpdate._hashFileStream()  [External] firmwareUpdate.getIncomingFileHash()
 
 
 updates:
@@ -47,17 +47,21 @@ updates:
 
 
 
- firmware::firmware(uint8_t csPin, uint8_t interruptPin):rf95(csPin,interruptPin),myDriver(rf95, myCipher){
+fileTransfer::fileTransfer(uint8_t csPin, uint8_t interruptPin, uint8_t SD_pinInt, const char file[])
+  : rf95(csPin, interruptPin), myDriver(rf95, myCipher) {
+  strncpy(_file, file, sizeof(_file) - 1);
+  _SDpin = SD_pinInt;
 
- }
+  // Old way utilizing String for the file name
+  // _file = file;
+}
 
 
 //Single function to connect and either open the file or make the file READ/WRITE
 //convert from String to char
-bool firmware::initalizeHashFile(const char file[], const char readWrite[]) {
-  resetFileWriteVariables();
+bool fileTransfer::_initalizeHashFile(const char readWrite[]) {
+  _resetFileWriteVariables();
 
-  _file = file;
 
   if (readWrite == "read") {
     //set the _readWriteFlag to 0x01
@@ -73,7 +77,7 @@ bool firmware::initalizeHashFile(const char file[], const char readWrite[]) {
 
 
   //Make sure that we are connected to the SD card
-  if (!SD.begin(4)) {
+  if (!SD.begin(_SDpin)) {
     initalized = false;
   }
 
@@ -94,7 +98,7 @@ bool firmware::initalizeHashFile(const char file[], const char readWrite[]) {
   return initalized;
 }
 
-void firmware::resetFileWriteVariables() {
+void fileTransfer::_resetFileWriteVariables() {
   _b = 0;
   _byteCount = 1;
   _fileSize = 0;
@@ -106,43 +110,42 @@ void firmware::resetFileWriteVariables() {
 }
 
 // Main command block to handle the input coming from the computer
-void firmware::receiveCommandLocal() {
-  //char incomingCommand[5] = "";
+void fileTransfer::receiveCommandLocal() {
+
 
 
   if (_commandMain == 0) {
     while (SerialUSB.available() > 0) {
 
       char c = SerialUSB.read();
-      _command += c;
+      // Old way 7-9-2025
+      //_command += c;
 
-      // TEST - Change from string to C-string
-      // create a temporary char array
-      // char temp[2];
-      // temp[0] = c;
-      // temp[1] = '\0';
       _inValue = (uint8_t)c;
-      //SerialUSB.println(_inValue);
-      // strcat(incomingCommand, temp);
+
+      if (c != '\n') {
+        incomingCommand[index] = c;
+        index++;
+        if (index >= sizeof(incomingCommand)) {
+          index = sizeof(incomingCommand) - 1;
+        }
+      } else if (c == '\n') {
+        incomingCommand[index] = '\0';
+        _readCommand = true;
+        index = 0;
+      }
     }
-    if (_command.length() > 0) {
+    if (_readCommand) {
       SerialUSB.println("main");
-      //SerialUSB.println(command);
-      //String commandToInt = _command;  ** Old way of doing it with char that is concatenated to a string and then converted to an int
-      //_inValue = commandToInt.toInt();
-
-      //TEST
-      // if (strcmp(incomingCommand,"file transfer") == 0) {
-
-      // }
+      //SerialUSB.println(incomingCommand);
 
       //no line ending
-      if (_command == "file transfer") {
+      if (strcmp(incomingCommand, "file transfer") == 0) {
         _pushBinaryRemote = false;
         //SerialUSB.println("this is working correctly");
 
         //let initalize the file first... "file1.bin"
-        initalizeHashFile("file1.bin", "write");
+        _initalizeHashFile("write");
 
         _commandMain = 1;
         // transferFlag = true;
@@ -152,7 +155,7 @@ void firmware::receiveCommandLocal() {
       //---------------------//
       // SENDING FILE REMOTE //
       //---------------------//
-      if ((_command == "upload remote") && (_pushBinaryRemote == true)) {
+      else if ((strcmp(incomingCommand, "upload remote") == 0) && (_pushBinaryRemote == true)) {
         SerialUSB.println("remote transfer block");  // used for the visual basic code so we can't remove
         fileData.remoteStatus = 0x25;
         SerialUSB.println("inside of the upload command");
@@ -167,18 +170,19 @@ void firmware::receiveCommandLocal() {
           myDriver.waitPacketSent();
           //waitToSendDataRF(); **
         }
-      }
-      if (_command == "get state") {
+      } else if (strcmp(incomingCommand, "get state") == 0) {
         SerialUSB.println("main");
       }
-      _command = "";
+      //_command = "";
+      _readCommand = false;
     }
   } else if (_commandMain == 1) {
     if (SerialUSB) {
       SerialUSB.println("file transfer block");
     }
-    writeFile();
+    _writeFile();
   }
+
   if (_inValue == 1) {
     digitalWrite(LED_BUILTIN, HIGH);
     SerialUSB.println("light on");
@@ -190,37 +194,42 @@ void firmware::receiveCommandLocal() {
     _inValue = 0xFF;
   }
 
-  if (transferComplete()) {
+  if (_transferComplete()) {
     _fileTransferComplete = false;
     _pushBinaryRemote = true;
 
     SerialUSB.println("file transfer complete");
 
     //Read from the file we just wrote to in order to get the hash
-    initalizeHashFile("file1.bin", "read");
-    hashFileStream();
+    _initalizeHashFile("read");
+    _hashFileStream();
 
     //lets print the incoming file hash
-    SerialUSB.println(getIncomingFileHash());
+    char* _fileHash = getIncomingFileHash();
+    SerialUSB.println(_fileHash);
+    //SerialUSB.println(getIncomingFileHash());
 
-    SerialUSB.println(getFileHash());
+    SerialUSB.println(_hashValue);
 
-    if (getIncomingFileHash() == getFileHash()) {
+    //.c_str()
+    if (strcmp(_fileHash, _hashValue) == 0) {
+      //if (getIncomingFileHash() == _hashValue){
       SerialUSB.println("match");
       //SerialUSB.print("ptr for _arrayHash: ");
       // uint8_t fileData.hash[35] = {0};
 
-      memcpy(fileData.hash, getFileHashPtr(), sizeof(fileData.hash));
+      memcpy(fileData.hash, &_arrayHash, sizeof(fileData.hash));
       // *** Printing out the address takes up to much time and messes up the array printing ***
-      // SerialUSB.println((unsigned long)firmwareUpdate.getFileHashPtr());
       // OPEN THE FILE
       _myFile = SD.open(_file);
+
 
       binaryData.iterationCount = _myFile.size() / sizeof(binaryData.sendData);
       binaryData.leftOver = _myFile.size() % sizeof(binaryData.sendData);
 
-      SerialUSB.println(binaryData.iterationCount);
-      SerialUSB.println(binaryData.leftOver);
+      // DEBUG --> used to show the interationCount and leftover
+      //SerialUSB.println(binaryData.iterationCount);
+      //SerialUSB.println(binaryData.leftOver);
 
       _myFile.close();
       // **DEBUG**
@@ -300,6 +309,12 @@ void firmware::receiveCommandLocal() {
         //SerialUSB.println(count);
         _count++;
 
+        // Used for updating the progress bar on the GUI
+        if (_count % 5 == 0) {
+          sprintf(buffer, "pb%d", _count * 200);
+          SerialUSB.println(buffer);
+        }
+
         myDriver.waitPacketSent();
         //waitToSendDataRF(); **
         //delay();
@@ -323,33 +338,16 @@ void firmware::receiveCommandLocal() {
       //sendDataRF((uint8_t*)&fileDataBuf); **
       //waitToSendDataRF(); **
 
-      SerialUSB.println("data sent...");
+      //SerialUSB.println("data sent...");
+      SerialUSB.println("remote file transfer complete");  // return to 'main' command block
       // Need to reset the transferComplete flag as it will print the 'total Amout of Received Bytes' on the receive side if I don't
       fileData.transferComplete = false;
     }
   }
 }
 
-// **NOT IN USE**
-// void firmware::_prepareForFileUpload() {
-//   // first thing i need to do is append the hashdata to an array
-
-//   struct {
-//     bool firstSend = true;
-//     char hashArray[64] = "";
-//     uint8_t fileArray[20000];
-//   } fileHashData;
-
-//   // fileHashData dataToSend;
-//   _hashValue.toCharArray(fileHashData.hashArray, _hashValue.length() + 1);
-//   //This prints correctly so we can comment out
-//   //SerialUSB.println(fileHashData.hashArray);
-// }
-
-
 // BufferSize is the amount of data that we are execpting to pad the incoming array
-void firmware::writeFile() {
-  char buffer[8];
+void fileTransfer::_writeFile() {
 
   // This is a timeout function for sending the file locally, if after 10's the file isn't transfered then we can assume
   // that we want to back out or we have lost connection
@@ -391,7 +389,6 @@ void firmware::writeFile() {
     }
     //changed from 3 --> 35 because we again added 32 bytes
     if ((_byteCount - 35) == _fileSize) {
-      digitalWrite(13, HIGH);
       _dataFlag = true;
       sprintf(buffer, "pb%d", _byteCount - 35);
       SerialUSB.println(buffer);
@@ -416,30 +413,79 @@ void firmware::writeFile() {
   }
 }
 // move us back to the main
-bool firmware::transferComplete() {
+bool fileTransfer::_transferComplete() {
 
   return _fileTransferComplete;
 }
+// Old way 7-10-2025
+// String fileTransfer::getIncomingFileHash() {
+//   String incomingHash = "";
+//   String _arrayHashLength = "";
 
-String firmware::getIncomingFileHash() {
-  String incomingHash = "";
-  String _arrayHashLength = "";
+//   // Start at index 3 because the first 3 bytes are not apart of the hash
+//   // index 0 = 22, index 1 & index 2 = file size
+//   for (int i = 3; i < sizeof(_arrayHash); i++) {
+//     _arrayHashLength = String(_arrayHash[i], HEX);
+//     if (_arrayHashLength.length() == 1) {
+//       String modified = "0";
+//       modified += _arrayHashLength;
+//       incomingHash += modified;
+//     } else {
+//       incomingHash += _arrayHashLength;
+//     }
+//     //incomingHash += String(_arrayHash[i], HEX);
+//   }
+//   return incomingHash;
+// }
+
+
+// Hashes the file received, stores in char array 7-10-2025
+char* fileTransfer::getIncomingFileHash() {
+  memset(incomingHash, 0, sizeof(incomingHash));
+  char tempBuffer[3] = { 0 };
 
   for (int i = 3; i < sizeof(_arrayHash); i++) {
-    _arrayHashLength = String(_arrayHash[i], HEX);
-    if (_arrayHashLength.length() == 1) {
-      String modified = "0";
-      modified += _arrayHashLength;
-      incomingHash += modified;
-    } else {
-      incomingHash += _arrayHashLength;
+    sprintf(tempBuffer, "%02x", _arrayHash[i]);
+    //SerialUSB.println(incomingHash);
+    strcat(incomingHash, tempBuffer);
+    if (i == sizeof(_arrayHash) - 1) {
+      //SerialUSB.println("terminating char string");
+      incomingHash[64] = '\0';
+      break;
     }
-    //incomingHash += String(_arrayHash[i], HEX);
   }
+
   return incomingHash;
 }
 
-void firmware::readFile() {
+// Was going to try and combine the incoming/stream hash methods
+// char* fileTransfer::getHash(const char stream[]) {
+
+
+//   if (strcmp(stream, "incoming") == 0) {
+//     char* hashPTR = &incomingHash;
+//     char tempBuffer[3] = { 0 };
+
+//     for (int i = 3; i < sizeof(_arrayHash); i++) {
+//       sprintf(tempBuffer, "%02x", _arrayHash[i]);
+//       //SerialUSB.println(incomingHash);
+//       strcat(incomingHash, tempBuffer);
+//       if (i == sizeof(_arrayHash) - 1) {
+//         SerialUSB.println("terminating char string");
+//         incomingHash[64] = '\0';
+//         break;
+//       }
+//     }
+//   } else if (strcmp(stream, "stream")) {
+
+//   }
+
+//   return hashPTR;
+// }
+
+
+
+void fileTransfer::readFile() {
   _myFile = SD.open(_file);
 
   if (_myFile) {
@@ -453,19 +499,9 @@ void firmware::readFile() {
   }
 }
 
-String firmware::getFileHash() {
-  return _hashValue;
-}
-
-//
-uint8_t* firmware::getFileHashPtr() {
-  uint8_t* Ptr = _arrayHash;
-  return Ptr;
-}
-
 
 // Hashes the file and then returns the hash
-void firmware::hashFileStream() {
+void fileTransfer::_hashFileStream() {
   unsigned int _count = 0;
   uint8_t _bitShiftCount = 0;
   uint32_t _hashBank = 0;
@@ -474,7 +510,8 @@ void firmware::hashFileStream() {
   uint8_t convertedHashArray[32];
 
   if (_myFile) {
-    _hashValue = "";  //reset the hash
+    //_hashValue = "";  //reset the hash
+    memset(_hashValue, 0, sizeof(_hashValue));  //Reset the hashValue so we don't keep concatenating to it...
     while (_myFile.available()) {
 
       for (int i = 0; i < 4; i++) {
@@ -616,7 +653,8 @@ void firmware::hashFileStream() {
   // }
 
   // Have to send the array size as an argument
-  convertHashArray2String(convertedHashArray, sizeof(convertedHashArray));
+  //_convertHashArray2String(convertedHashArray, sizeof(convertedHashArray));
+  _getFileStreamHash(convertedHashArray);
 
   //This is to make sure that the hashValue is the same as the array print out
   //SerialUSB.println("\n" + hashValue);
@@ -633,37 +671,46 @@ void firmware::hashFileStream() {
   //return _hashValue;
 }
 
-
+//**Old way**
 // This will take in the array and convert it to a String
-void firmware::convertHashArray2String(uint8_t* arrayToConvert, uint8_t size) {
-  String arrayHashLength = "";
+// void fileTransfer::_convertHashArray2String(uint8_t* arrayToConvert, uint8_t size) {
+//   String arrayHashLength = "";
 
-  for (int i = 0; i < size; i++) {
-    arrayHashLength = String(arrayToConvert[i], HEX);
+//   for (int i = 0; i < size; i++) {
+//     arrayHashLength = String(arrayToConvert[i], HEX);
 
-    if (arrayHashLength.length() == 1) {
-      String modified = "0";
-      modified += arrayHashLength;
-      _hashValue += modified;
-    } else {
-      _hashValue += arrayHashLength;
+//     if (arrayHashLength.length() == 1) {
+//       String modified = "0";
+//       modified += arrayHashLength;
+//       _hashValue += modified;
+//     } else {
+//       _hashValue += arrayHashLength;
+//     }
+//   }
+// }
+
+// 7-10-2025
+//I know the array is only going to be 32 bytes so theres no need to pass a second parameter
+void fileTransfer::_getFileStreamHash(uint8_t* arrayToConvert) {
+
+  char tempBuffer[3] = { 0 };
+
+  for (int i = 0; i < 32; i++) {
+    sprintf(tempBuffer, "%02x", arrayToConvert[i]);
+    strcat(_hashValue, tempBuffer);
+    if (i == sizeof(arrayToConvert) - 1) {
+      //SerialUSB.println("terminating char string");
+      _hashValue[64] = '\0';
     }
   }
 }
 
 
-
-//return a 32 unsigned value
-uint32_t firmware::fileSize() {
-
-  return _myFile.size();
-}
-
 // ADDED 6-29-2025
 //------------------------//
 // RESEND DROPPED PACKETS //
 //------------------------//
-void firmware::_resendDroppedPackets(uint8_t* droppedPackets, uint8_t index) {
+void fileTransfer::_resendDroppedPackets(uint8_t* droppedPackets, uint8_t index) {
   //-----------//
   // OPEN FILE //
   //-----------//
@@ -727,10 +774,16 @@ void firmware::_resendDroppedPackets(uint8_t* droppedPackets, uint8_t index) {
         // Increment the internalIndex count
         internalIndex += 1;
       }
-
       packetCount++;
     }
     _myFile.close();
+
+    // Let remote know when the last dropped packet has been sent
+    fileData.remoteStatus = 0x45;
+
+    memcpy(fileDataBuf, &fileData, sizeof(fileData));
+
+    myDriver.send((uint8_t*)&fileDataBuf, sizeof(fileData));
   }
   //---------------//
   // INITIAL DEBUG //
@@ -743,9 +796,9 @@ void firmware::_resendDroppedPackets(uint8_t* droppedPackets, uint8_t index) {
   // }
 }
 
-void firmware::packetDataAvailable_Sender(){
+void fileTransfer::packetDataAvailable_Sender() {
 
-    if (myDriver.available()) {
+  if (myDriver.available()) {
     byte buf[myDriver.maxMessageLength()];
     byte len = sizeof(buf);
 
@@ -776,9 +829,8 @@ void firmware::packetDataAvailable_Sender(){
           _resendDroppedPackets(dropped.resendPackets, dropped.packetIndex);
 
           // **DEBUG**
-          SerialUSB.println("Done sending droppped packets");
           // Reset the droppedPacketFlag otherwise on the receive side it messes with how the data is read/wrote into the file
-          binaryData.droppedPacketFlag = false;  
+          binaryData.droppedPacketFlag = false;
 
           //-----------------//  Example: 49 packet dropped
           //ref. file - exel //  (49 -1) * 200 = 9600 bytes from file start
