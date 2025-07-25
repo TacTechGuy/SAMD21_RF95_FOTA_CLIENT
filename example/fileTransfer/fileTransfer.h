@@ -108,6 +108,13 @@ updates:
 #include <RHEncryptedDriver.h>
 #include <Speck.h>
 
+#define FILE_DATA 0x03
+#define BINARY_DATA 0x04
+#define DROPPED_PACKET 0x05
+
+// StructCommand used within the structures
+
+
 // My hash class
 class fileTransfer {
 
@@ -157,13 +164,13 @@ private:
   // STRUCTURES //
   //------------//
   struct {
-    uint8_t size = 0;
+    uint8_t command = DROPPED_PACKET;
     uint8_t packetIndex = 0;
     uint8_t resendPackets[200] = { 0 };
   } dropped;
 
   struct {
-    uint8_t size = 210;
+    uint8_t command = BINARY_DATA;
     bool droppedPacketFlag = false;
     uint16_t droppedPacket = 0;
     uint16_t packetCount = 0;
@@ -173,7 +180,7 @@ private:
   } binaryData;
 
   struct {
-    uint8_t size = 0;
+    uint8_t command = FILE_DATA;
     uint8_t hash[35] = { 0 };
     bool transferComplete = false;
     bool transferBegin = false;

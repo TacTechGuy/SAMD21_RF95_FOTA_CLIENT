@@ -162,8 +162,7 @@ void fileTransfer::receiveCommandLocal() {
 
         // Check remote status
         if (fileData.remoteStatus == 0x25) {
-          fileData.size = sizeof(fileData);
-
+          
           memcpy(fileDataBuf, &fileData, sizeof(fileData));
           myDriver.send((uint8_t*)&fileDataBuf, sizeof(fileData));
           //sendDataRF((uint8_t*)&fileDataBuf); **
@@ -320,7 +319,6 @@ void fileTransfer::receiveCommandLocal() {
         //delay();
       }
       _myFile.close();
-      fileData.size = sizeof(fileData);
 
       //Reset the packet count and counter
       binaryData.packetCount = 0;
@@ -811,7 +809,7 @@ void fileTransfer::packetDataAvailable_Sender() {
         //--------------------------------------------------------//
         // [RECEIVING MESSAGES] DROPPED PACKETS/ FILE SEND CONFIR.//
         //--------------------------------------------------------//
-        if (incomingBuffer[0] == sizeof(dropped)) {
+        if (incomingBuffer[0] == DROPPED_PACKET) {
 
           memcpy(&dropped, incomingBuffer, sizeof(dropped));
 
@@ -837,7 +835,7 @@ void fileTransfer::packetDataAvailable_Sender() {
           //-----------------//  packet 49: start 9600, stop 9799  [200] bytes
           // wipe the memory location just for testing purposes
           memset(dropped.resendPackets, 0, sizeof(dropped.resendPackets));
-        } else if (incomingBuffer[0] == sizeof(fileData)) {
+        } else if (incomingBuffer[0] == FILE_DATA) {
 
           memcpy(&fileData, incomingBuffer, sizeof(fileData));
 
