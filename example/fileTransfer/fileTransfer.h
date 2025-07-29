@@ -128,7 +128,12 @@ private:
   // VARIABLES //
   //-----------//
   uint8_t _stream;
-  uint32_t _count = 1;
+  uint32_t _count = 1;          // used for incoming file byte count
+  uint32_t _fileByteCount = 1;  // used for keeping track of the number of bytes written to the SD card in comparison to the file size
+  
+  uint16_t _packetCounter = 0;
+  bool _offsetWriteFlag = false;
+  uint8_t _writeOffsetSize = 0;
   bool _pushBinaryRemote = false;
   bool _fileTransferComplete = false;
 
@@ -243,7 +248,7 @@ public:
   // Retreives the hash from the inbound array
   char * getIncomingFileHash();
 
-  void packetDataAvailable_Sender();
+  void packetDataAvailable(const char deviceType[]);
 
   void packetDataAvailable_Receiver();
 };

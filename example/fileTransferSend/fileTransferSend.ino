@@ -70,7 +70,7 @@ void loop() {
   //--------------------------//
   // HANDLES RF COMMUNICATION //
   //--------------------------//
-  firmwareUpdate.packetDataAvailable_Sender();
+  firmwareUpdate.packetDataAvailable("sender");
   // --> RF communication
   // --> block to send/receive dropped packets
 }

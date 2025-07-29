@@ -47,7 +47,7 @@ double frequency = 921.2;
 unsigned char encryptKey[16] = **REDACTED**;
 
 // Object for the firmware Class [chip select, interrupt] pins
-fileTransfer firmwareUpdate(RFM_95CS, RFM_95INT, pinIntSD,"file1.bin");
+fileTransfer firmwareUpdate(RFM_95CS, RFM_95INT, pinIntSD,"runBin.bin");
 
 /* FILE NAME CAN ONLY BE 8 CHARACTERS LONG*/
 //String file = "TEST22.bin";
@@ -106,7 +106,7 @@ void loop() {
   //------------------------------//
   // HANDLES SERIAL COMMUNICATION //
   //------------------------------//
-  firmwareUpdate.receiveCommandLocal();
+  //firmwareUpdate.receiveCommandLocal();
   // --> Serial commands
   // --> block to send the binary file
 
@@ -114,7 +114,7 @@ void loop() {
   //--------------------------//
   // HANDLES RF COMMUNICATION //
   //--------------------------//
-  firmwareUpdate.packetDataAvailable_Sender();
+  firmwareUpdate.packetDataAvailable("receiver");
   // --> RF communication
   // --> block to send/receive dropped packets
 }
