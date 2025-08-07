@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #include <string.h>
 #include <stdint.h>
 /*
@@ -206,7 +207,7 @@ void fileTransfer::receiveCommandLocal() {
     _hashFileStream();
 
     //lets print the incoming file hash
-    char* _fileHash = getIncomingFileHash();
+    char* _fileHash = _getIncomingFileHash("sender");
     SerialUSB.println(_fileHash);
     //SerialUSB.println(getIncomingFileHash());
 
@@ -440,21 +441,34 @@ bool fileTransfer::_transferComplete() {
 
 
 // Hashes the file received, stores in char array 7-10-2025
-char* fileTransfer::getIncomingFileHash() {
+// Re-written to where it can be used on the receive side also
+char* fileTransfer::_getIncomingFileHash(const char deviceLocation[]) {
   memset(incomingHash, 0, sizeof(incomingHash));
   char tempBuffer[3] = { 0 };
 
-  for (int i = 3; i < sizeof(_arrayHash); i++) {
-    sprintf(tempBuffer, "%02x", _arrayHash[i]);
-    //SerialUSB.println(incomingHash);
-    strcat(incomingHash, tempBuffer);
-    if (i == sizeof(_arrayHash) - 1) {
-      //SerialUSB.println("terminating char string");
-      incomingHash[64] = '\0';
-      break;
+  if (strcmp(deviceLocation, "sender") == 0) {
+    for (int i = 3; i < sizeof(_arrayHash); i++) {
+      sprintf(tempBuffer, "%02x", _arrayHash[i]);
+      //SerialUSB.println(incomingHash);
+      strcat(incomingHash, tempBuffer);
+      if (i == sizeof(_arrayHash) - 1) {
+        //SerialUSB.println("terminating char string");
+        incomingHash[64] = '\0';
+        break;
+      }
+    }
+  } else if (strcmp(deviceLocation, "receiver") == 0) {
+    for (int i = 3; i < sizeof(fileData.hash); i++) {
+      sprintf(tempBuffer, "%02x", fileData.hash[i]);
+      //SerialUSB.println(incomingHash);
+      strcat(incomingHash, tempBuffer);
+      if (i == sizeof(fileData.hash) - 1) {
+        //SerialUSB.println("terminating char string");
+        incomingHash[64] = '\0';
+        break;
+      }
     }
   }
-
   return incomingHash;
 }
 
@@ -766,10 +780,10 @@ void fileTransfer::_resendDroppedPackets(uint8_t* droppedPackets, uint8_t index)
         //------------------------------//    Used to do the intial check if the dropped packet is correctly indexed from the file for
         // PRINT OUT THE DROPPED PACKET //    the resend.
         //------------------------------//
-        for (int i = 0; i < 200; i++) {
-          SerialUSB.print(binaryData.sendData[i], HEX);
-          SerialUSB.print(",");
-        }
+        // for (int i = 0; i < 200; i++) {
+        //   SerialUSB.print(binaryData.sendData[i], HEX);
+        //   SerialUSB.print(",");
+        // }
         SerialUSB.println();
         // Increment the internalIndex count
         internalIndex += 1;
@@ -910,7 +924,20 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
               myDriver.waitPacketSent();
               // THis is where the file integrity will be checked with the hash
             } else if (fileData.remoteStatus == 0x45) {
-              SerialUSB.println("Received the last dropped packet");
+              if (dropped.resendPackets[0] == 0) {
+                SerialUSB.println("All dropped packets have been received!");
+
+                // Now since the file should be rebuilt we can then hash it
+                if (_checkFileIntegrity("receiver")) {
+                  SerialUSB.println("File Integrity Check: PASS");
+                } else {
+                  SerialUSB.println("file hashing error");
+                }
+              } else {
+                SerialUSB.println("We had an issue receiving all of the dropped packets");
+
+                // This is where we will send another message to send dropped packets
+              }
               //-------------------------------------------//
               // FILE TRANSFER COMPLETE / RESET VARIABLES  //
               //-------------------------------------------//
@@ -925,7 +952,7 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
               SerialUSB.println((binaryData.packetCount - dropped.packetIndex) * 200);
 
               // Check the first array item to see if there are any dropped packets
-              if (dropped.resendPackets[0] > 0) {
+              if (dropped.resendPackets[0] != 0) {
                 SerialUSB.print("packets dropped ");
                 //goes off of index so if we have dropped 2 packets that index[0]
                 //and index[1]  but it is then incremented to  index[2] for the
@@ -949,10 +976,19 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
                 myDriver.waitPacketSent();
 
                 // wipe the memory location for now because we are testing it..
-                memset(dropped.resendPackets, 0, sizeof(dropped.resendPackets));
+                // Don't wipe the memory locations.... we will wipe the memory was we receive the packets in
+                //memset(dropped.resendPackets, 0, sizeof(dropped.resendPackets));
                 SerialUSB.println(" ");
                 //reset the index of the resendPackets
                 dropped.packetIndex = 0;
+                // We have received all of the packets on the first go so we need to check the hash's to make sure that they match
+              }
+              else {
+                if (_checkFileIntegrity("receiver")) {
+                  SerialUSB.println("File Integrity Check: PASS");
+                } else {
+                  SerialUSB.println("file hashing error");
+                }
               }
               fileData.transferComplete = false;
               _fileByteCount = 1;
@@ -990,6 +1026,10 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
                 _packetCounter = binaryData.packetCount;
                 dropped.packetIndex++;
                 _writeOffsetSize++;
+                if (dropped.packetIndex > 198) {
+                  dropped.packetIndex == 198;
+                  SerialUSB.println("Dropped Packet Buffer Index maxed out @ 198");
+                }
                 //meaning we have more than 1 packet of seperation
               } else {
                 uint16_t indexCount, externalCount, internalCount = 0;
@@ -1054,61 +1094,97 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
           }
           // We are receiving the droppped packets now
           else {
-            // Reopen the binary file so we can modify it
-            _myFile = SD.open(_file, O_RDWR);
 
-            // need to read in the iteration count and the leftover count to check the dropped packet
-            // if droppedpacket < iteration write 200
-            // else write leftover size
-            uint8_t writeBlockSize = 0;
+            if (binaryData.droppedPacket == dropped.resendPackets[0]) {
+              char buffer[100];
+              sprintf(buffer, "Receiving packet %d from transmitter...", binaryData.droppedPacket);
+              SerialUSB.println(buffer);
 
-            // Total packet _fileByteCount = iterationCount + 1 if (leftOver > 0)
-            uint8_t totalPacketCount = binaryData.iterationCount;
-            totalPacketCount += (binaryData.leftOver > 0) ? 1 : 0;
+              // Reopen the binary file so we can modify it
+              _myFile = SD.open(_file, O_RDWR);
 
-            // Now that we have the total packet count we can make sure that we don't overshoot the file size
-            // Now lets first compare to see if the dropped packet is equal to the overall file size packet count
-            // First I need to see if the interationCount and the totalPacketCount are the same
+              // need to read in the iteration count and the leftover count to check the dropped packet
+              // if droppedpacket < iteration write 200
+              // else write leftover size
+              uint8_t writeBlockSize = 0;
+
+              // Total packet _fileByteCount = iterationCount + 1 if (leftOver > 0)
+              uint8_t totalPacketCount = binaryData.iterationCount;
+              totalPacketCount += (binaryData.leftOver > 0) ? 1 : 0;
+
+              // Now that we have the total packet count we can make sure that we don't overshoot the file size
+              // Now lets first compare to see if the dropped packet is equal to the overall file size packet count
+              // First I need to see if the interationCount and the totalPacketCount are the same
 
 
-            // Handle the instance that the droppedPacket is equal to the last total packet for the file but there is left over
-            // So we only want to write the size of the leftOver segment, no more
-            if ((binaryData.droppedPacket == totalPacketCount) && (binaryData.leftOver != 0)) {
-              writeBlockSize = binaryData.leftOver;
-            } else {
-              writeBlockSize = 200;
+              // Handle the instance that the droppedPacket is equal to the last total packet for the file but there is left over
+              // So we only want to write the size of the leftOver segment, no more
+              if ((binaryData.droppedPacket == totalPacketCount) && (binaryData.leftOver != 0)) {
+                writeBlockSize = binaryData.leftOver;
+              } else {
+                writeBlockSize = 200;
+              }
+
+              // Now we should be able to write to the file
+              // First need to move to the location and then write the data...
+              //*** DEBUG ***
+              //SerialUSB.print("Write block size");
+              //SerialUSB.println(writeBlockSize);
+
+              // Lets first print out the dropped packets to make sure we have them correctly
+              //SerialUSB.println((binaryData.droppedPacket -1)*200);   // This will be what I use to seek out the correct index within the binary file
+              //---------------//
+              // PRINT PACKETS //
+              //---------------//
+              // for (int i = 0; i < sizeof(binaryData.sendData); i++) {
+              //   // myfile.seek((packet -1) * 200)
+              //   SerialUSB.print(binaryData.sendData[i], HEX);
+              //   SerialUSB.print(",");
+              // }
+              // FIRST NEED TO SET THE POINT IN THE FILE
+              _myFile.seek((binaryData.droppedPacket - 1) * 200);
+
+              for (int i = 0; i < writeBlockSize; i++) {
+                _myFile.write(binaryData.sendData[i]);
+              }
+              //SerialUSB.println("");
+              // RESET the packet count along with the droppedPacketFlag
+              binaryData.droppedPacketFlag = false;
+              binaryData.droppedPacket = 0;
+              _myFile.close();
+
+              //--------------------------------//
+              // SHIFT THE DROPPED PACKET ARRAY //
+              //--------------------------------//
+              for (int i = 0; i < sizeof(dropped.resendPackets) - 1; i++) {
+                dropped.resendPackets[i] = dropped.resendPackets[i + 1];
+              }
+              // Zero the last index
+              dropped.resendPackets[sizeof(dropped.resendPackets) - 1] = 0;
             }
-
-            // Now we should be able to write to the file
-            // First need to move to the location and then write the data...
-            //*** DEBUG ***
-            //SerialUSB.print("Write block size");
-            //SerialUSB.println(writeBlockSize);
-
-            // Lets first print out the dropped packets to make sure we have them correctly
-            //SerialUSB.println((binaryData.droppedPacket -1)*200);   // This will be what I use to seek out the correct index within the binary file
-            //---------------//
-            // PRINT PACKETS //
-            //---------------//
-            // for (int i = 0; i < sizeof(binaryData.sendData); i++) {
-            //   // myfile.seek((packet -1) * 200)
-            //   SerialUSB.print(binaryData.sendData[i], HEX);
-            //   SerialUSB.print(",");
-            // }
-            // FIRST NEED TO SET THE POINT IN THE FILE
-            _myFile.seek((binaryData.droppedPacket - 1) * 200);
-
-            for (int i = 0; i < writeBlockSize; i++) {
-              _myFile.write(binaryData.sendData[i]);
-            }
-            //SerialUSB.println("");
-            // RESET the packet count along with the droppedPacketFlag
-            binaryData.droppedPacketFlag = false;
-            binaryData.droppedPacket = 0;
-            _myFile.close();
           }
         }
       }
     }
   }
+}
+
+bool fileTransfer::_checkFileIntegrity(const char deviceLocation[]) {
+  // open the file first
+  _myFile = SD.open(_file);
+
+  // First lets has the file stream, this will return _hashValue
+  _hashFileStream();
+  bool result = false;
+
+  // Secondly need to convert the incoming file hash that is sent within the fileData structure
+  char* receivedHash = _getIncomingFileHash(deviceLocation);
+
+  // After we have the two we can compare
+  if (strcmp(receivedHash, _hashValue) == 0) {
+    result = true;
+  }
+  _myFile.close();
+
+  return result;
 }

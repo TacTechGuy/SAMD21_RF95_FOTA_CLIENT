@@ -231,6 +231,11 @@ private:
   // Used internally when hashing the file stream
   void _getFileStreamHash(uint8_t* arrayToConvert);
 
+  // Retreives the hash from the inbound array
+  char * _getIncomingFileHash(const char deviceLocation[]);
+
+  bool _checkFileIntegrity(const char deviceLocation[]);
+
 public:
   Speck myCipher;
   RH_RF95 rf95;
@@ -245,8 +250,7 @@ public:
   // Used as the main command block for receiving input from computer
   void receiveCommandLocal();
 
-  // Retreives the hash from the inbound array
-  char * getIncomingFileHash();
+
 
   void packetDataAvailable(const char deviceType[]);
 
