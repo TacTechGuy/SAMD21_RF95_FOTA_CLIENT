@@ -1,0 +1,32 @@
+# --- 1. THE VAULT (Secrets) ---
+secrets.h
+include/secrets.h
+
+# --- 2. EMBEDDED / PLATFORMIO ---
+.pio/
+.vscode/
+*.bak
+*.hex
+*.bin
+*.elf
+
+# --- 3. VISUAL BASIC / VISUAL STUDIO ---
+# Ignore build results
+[Dd]ebug/
+[Rr]elease/
+bin/
+obj/
+
+# Ignore user-specific files and caches
+*.suo
+*.user
+*.userprefs
+*.sln.docstates
+.vs/
+
+# --- 4. DATA & NOISE ---
+*.xlsx
+generateHash-1.txt
+hash-receiveTest.txt
+.DS_Store
+Thumbs.db

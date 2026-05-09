@@ -47,11 +47,13 @@ updates:
 #include "SD.h"
 #include "USB/USBAPI.h"
 #include "variant.h"
+#include "secrets.h"
 
 
 
 fileTransfer::fileTransfer(uint8_t csPin, uint8_t interruptPin, uint8_t SD_pinInt, const char file[])
   : rf95(csPin, interruptPin), myDriver(rf95, myCipher) {
+    myCipher.setKey(encryptKey, sizeof(encryptKey));
   strncpy(_file, file, sizeof(_file) - 1);
   _SDpin = SD_pinInt;
 
@@ -627,21 +629,21 @@ void fileTransfer::_hashFileStream() {
   //used to convert from uint32_t array to a uint8_t array
   for (int i = 1; i < 9; i++) {
     for (int j = 1; j <= 4; j++) {
-      switch (j) {
+      switch (j) {																// [FIRST ITERATION] 
         case 1:
-          convertedHashArray[start] = _hashArray[i] >> 24 & 0xFF;
+          convertedHashArray[start] = _hashArray[i] >> 24 & 0xFF;				// CASE = 1 , START = 0 , i = 1
           start++;
           break;
         case 2:
-          convertedHashArray[start] = _hashArray[i] >> 16 & 0xFF;
+          convertedHashArray[start] = _hashArray[i] >> 16 & 0xFF;											   // CASE = 1 , START = 1 , i = 1 
           start++;
           break;
         case 3:
-          convertedHashArray[start] = _hashArray[i] >> 8 & 0xFF;
+          convertedHashArray[start] = _hashArray[i] >> 8 & 0xFF;																			  // CASE = 1 , START = 2 , i = 1
           start++;
           break;
         case 4:
-          convertedHashArray[start] = _hashArray[i] & 0xFF;
+          convertedHashArray[start] = _hashArray[i] & 0xFF;																													 // CASE = 1 , START = 3 , i = 1
           start++;
           break;
       }

@@ -28,7 +28,7 @@ CURRENT:
 1-14-2025 [IN-PROGRESS] 0-0-0000
 
 	DESCRIPTION: currently working on being able to send the binary data to a test board from a SAMD21proRF module. I'm able to send
-		     the file and transfer rates are atleast 97.7% but there are some packets that are getting dropped so I'm implementing
+		     the file and transfer rates are at least 97.7% but there are some packets that are getting dropped so I'm implementing
 		     a counter on the receive side along with a counter on the send side which is then sent with the binary data to then 
 		     cross check each other, from there we can then make note of which packets we didn't receive and then make a separate
 		     request to get the data again. Special consideration is going to have to be made when writing to the SD card on the 

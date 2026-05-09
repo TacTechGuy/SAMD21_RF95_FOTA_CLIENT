@@ -23,7 +23,7 @@ const int RFM_95RST = 7;  // NOT USED
 uint8_t pinIntSD = 4;
 double frequency = 921.2;
 
-unsigned char encryptKey[16] = **REDACTED**;
+//unsigned char encryptKey[16] = **REDACTED**;
 
 // Object for the firmware Class [chip select, interrupt] pins
 fileTransfer firmwareUpdate(RFM_95CS, RFM_95INT, pinIntSD,"file1.bin");
@@ -50,7 +50,7 @@ void setup() {
       firmwareUpdate.rf95.setTxPower(15, false);
       delay(100);
 
-      firmwareUpdate.myCipher.setKey(encryptKey, 16);
+      //firmwareUpdate.myCipher.setKey(encryptKey, 16);
       delay(100);
       SerialUSB.println("RF Receiver- Good to Go!");
       digitalWrite(LED_BUILTIN, LOW);
