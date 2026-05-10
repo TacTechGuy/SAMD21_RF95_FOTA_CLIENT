@@ -1,3 +1,5 @@
+#include <Arduino.h>
+#include <SPI.h>
 #include <sys/types.h>
 #include <string.h>
 #include <stdint.h>
@@ -1079,7 +1081,7 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
             }
 
 
-            for (int i = 0; i < sizeof(binaryData.sendData); i++) {
+            for (uint16_t i = 0; i < sizeof(binaryData.sendData); i++) {
               // Check the file size against the count to see if we have reached it so we can stop writing to the file
               if (_fileByteCount <= uint32_t(fileData.hash[1] << 8 | fileData.hash[2])) {
                 _myFile.write(binaryData.sendData[i]);

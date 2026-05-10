@@ -1,0 +1,11 @@
+{
+  "name": "RadioHead",
+  "version": "1.122.0",
+  "keywords": "radio, lora, rf95",
+  "description": "RadioHead with SPI dependency fix",
+  "frameworks": "arduino",
+  "platforms": "atmelsam",
+  "dependencies": {
+    "SPI": "*"
+  }
+}

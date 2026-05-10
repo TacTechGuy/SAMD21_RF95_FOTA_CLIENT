@@ -104,9 +104,9 @@ updates:
 #include <SPI.h>
 #include <SD.h>
 #include <stdint.h>
-#include <RH_RF95.h>
-#include <RHEncryptedDriver.h>
-#include <Speck.h>
+#include "RH_RF95.h"
+#include "RHEncryptedDriver.h"
+#include "Speck.h"
 
 #define FILE_DATA 0x03
 #define BINARY_DATA 0x04
