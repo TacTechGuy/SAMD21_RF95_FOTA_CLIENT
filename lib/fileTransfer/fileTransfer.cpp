@@ -76,11 +76,11 @@ fileTransfer::fileTransfer(uint8_t csPin, uint8_t interruptPin, uint8_t SD_pinIn
 bool fileTransfer::_initalizeHashFile(const char readWrite[]) {
   _resetFileWriteVariables();
 
-
-  if (readWrite == "read") {
+    
+  if (strcmp(readWrite, "read") == 0) {
     //set the _readWriteFlag to 0x01
     _readWriteFlag = 0x01;
-  } else if (readWrite == "write") {
+  } else if (strcmp(readWrite,"write") == 0) {
     //set the _readWriteFlag to 0x02
     _readWriteFlag = 0x02;
   } else {
@@ -264,7 +264,7 @@ void fileTransfer::receiveCommandLocal() {
 
         //then use a for loop to populate the array and get it ready to send
         if (_count <= binaryData.iterationCount) {
-          for (int i = 0; i < sizeof(binaryData.sendData); i++) {
+          for (uint8_t i = 0; i < sizeof(binaryData.sendData); i++) {
             _stream = _myFile.read();
             binaryData.sendData[i] = _stream;
           }
@@ -324,7 +324,7 @@ void fileTransfer::receiveCommandLocal() {
 
         // Used for updating the progress bar on the GUI
         if (_count % 5 == 0) {
-          sprintf(buffer, "pb%d", _count * 200);
+          sprintf(buffer, "pb%d", (int)_count * 200);
           SerialUSB.println(buffer);
         }
 
@@ -458,7 +458,7 @@ char* fileTransfer::_getIncomingFileHash(const char deviceLocation[]) {
   char tempBuffer[3] = { 0 };
 
   if (strcmp(deviceLocation, "sender") == 0) {
-    for (int i = 3; i < sizeof(_arrayHash); i++) {
+    for (uint8_t i = 3; i < sizeof(_arrayHash); i++) {
       sprintf(tempBuffer, "%02x", _arrayHash[i]);
       //SerialUSB.println(incomingHash);
       strcat(incomingHash, tempBuffer);
@@ -469,7 +469,7 @@ char* fileTransfer::_getIncomingFileHash(const char deviceLocation[]) {
       }
     }
   } else if (strcmp(deviceLocation, "receiver") == 0) {
-    for (int i = 3; i < sizeof(fileData.hash); i++) {
+    for (uint8_t i = 3; i < sizeof(fileData.hash); i++) {
       sprintf(tempBuffer, "%02x", fileData.hash[i]);
       //SerialUSB.println(incomingHash);
       strcat(incomingHash, tempBuffer);
@@ -763,7 +763,7 @@ void fileTransfer::_resendDroppedPackets(uint8_t* droppedPackets, uint8_t index)
         }
       }
       if (packetCount > (_myFile.size() / 200)) {
-        for (int i = 0; i < (_myFile.size() % 200); i++) {
+        for (uint8_t i = 0; i < (_myFile.size() % 200); i++) {
           byteCount++;
           stream = _myFile.read();
           binaryData.sendData[i] = stream;  //may need to use the dropped packet array....?
@@ -1169,7 +1169,7 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
               //--------------------------------//
               // SHIFT THE DROPPED PACKET ARRAY //
               //--------------------------------//
-              for (int i = 0; i < sizeof(dropped.resendPackets) - 1; i++) {
+              for (uint8_t i = 0; i < sizeof(dropped.resendPackets) - 1; i++) {
                 dropped.resendPackets[i] = dropped.resendPackets[i + 1];
               }
               // Zero the last index

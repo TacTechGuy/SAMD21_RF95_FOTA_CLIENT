@@ -76,6 +76,23 @@ The system identifies packet loss via sequence tracking and triggers automatic r
 
 ![Packet Resend & Integrity Capture](docs/images/packetsResent.png)  
 *The capture above demonstrates the system flagging a mismatch, recovering missing data, and concluding with a "Hash Match" confirmation.*
+### 🔍 Static Analysis & Quality Assurance (WIP)
+This project integrates **Cppcheck** for automated static analysis to maintain high code quality standards.
+
+**Current Audit Status:**
+- **High Severity:** 0 Issues (Verified)
+- **Medium Severity:** 30 Identified (Refactoring in progress)
+- **Low/Style:** 72 Identified
+
+> **Refactoring Notice:** I am currently addressing 30 medium-severity `uninitMemberVar` warnings. These are being resolved by migrating class constructors to **Member Initializer Lists** to ensure strict memory safety and eliminate non-deterministic behavior. This cleanup is scheduled for completion in the upcoming sprints.
+
+#### QA Roadmap
+1. [x] Initial Static Analysis Audit.
+2. [ ] Refactor `fileTransfer` constructors to initialize all member variables.
+3. [ ] Implement explicit type casting to resolve implicit conversion warnings.
+4. [ ] Achieve a "Zero-Medium-Issue" baseline for the core library.
+
+
 
 ---
 
@@ -139,7 +156,8 @@ The project was recently migrated to **PlatformIO** to implement professional so
 - [x] Modular C++ Library Design.
 - [x] End-to-End Verification: Hardware-in-the-loop (HIL) testing confirmed via GUI.
 - [x] Version Control (Git) with structured refactor history.
-- [ ] *Next Step:* Implementing Native Unit Testing for hashing entropy.
+- [ ] *Next Step: 1* Implement standardized code comments using Doxygen
+- [ ] *Next Step: 2* Implementing Native Unit Testing for hashing entropy.
 
 ---
 
