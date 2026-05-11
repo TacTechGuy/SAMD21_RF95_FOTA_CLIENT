@@ -17,9 +17,14 @@ data is re-written.
 ** This sketch is intented to work in conjunction with the fileTransferSend example **
 */
 
+/*
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
 
 #include "fileTransfer.h"
-//#include "secrets.h"
 
 uint8_t RFM_95CS = 12;
 uint8_t RFM_95INT = 6;
@@ -28,7 +33,7 @@ uint8_t pinIntSD = 4;
 double frequency = 921.2;
 
 
-//unsigned char encryptKey[16] = **REDACTED**;
+
 
 // Object for the firmware Class [chip select, interrupt] pins
 fileTransfer firmwareUpdate(RFM_95CS, RFM_95INT, pinIntSD,"runBin.bin");
@@ -55,8 +60,6 @@ void setup() {
       firmwareUpdate.rf95.setTxPower(15, false);
       delay(100);
 
-      //firmwareUpdate.myCipher.setKey(encryptKey, 16);
-      delay(100);
       SerialUSB.println("RF Receiver- Good to Go!");
       digitalWrite(LED_BUILTIN, LOW);
   }

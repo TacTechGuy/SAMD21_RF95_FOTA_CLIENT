@@ -44,6 +44,13 @@ updates:
               
 
 */
+
+/*
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
 #include "fileTransfer.h"
 #include "wiring_digital.h"
 #include "SD.h"
@@ -934,6 +941,7 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
                 // Now since the file should be rebuilt we can then hash it
                 if (_checkFileIntegrity("receiver")) {
                   SerialUSB.println("File Integrity Check: PASS");
+                  SerialUSB.println(_hashValue);
                 } else {
                   SerialUSB.println("file hashing error");
                 }
@@ -990,6 +998,7 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
               else {
                 if (_checkFileIntegrity("receiver")) {
                   SerialUSB.println("File Integrity Check: PASS");
+                  SerialUSB.println(_hashValue);
                 } else {
                   SerialUSB.println("file hashing error");
                 }
@@ -1031,7 +1040,7 @@ void fileTransfer::packetDataAvailable(const char deviceType[]) {
                 dropped.packetIndex++;
                 _writeOffsetSize++;
                 if (dropped.packetIndex > 198) {
-                  dropped.packetIndex == 198;
+                  dropped.packetIndex = 198;
                   SerialUSB.println("Dropped Packet Buffer Index maxed out @ 198");
                 }
                 //meaning we have more than 1 packet of seperation
