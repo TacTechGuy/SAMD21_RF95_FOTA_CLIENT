@@ -1,6 +1,5 @@
 # Secure RF95 LoRa Telemetry & Systems Integration
 **Hardware:** SAMD21 (Cortex-M0+) | **Radio:** RF95 (LoRa) | **Security:** Speck Cipher | **Control:** Visual Basic GUI
-
 ---
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Static Badge](https://img.shields.io/badge/Hardware%3A_SAMD21-gray?logo=microchip)](https://ww1.microchip.com/downloads/aemDocuments/documents/MCU32/ProductDocuments/DataSheets/SAM-D21-DA1-Family-Data-Sheet-DS40001882.pdf)
@@ -8,9 +7,16 @@
 
 
 
+<p align = "center">
+<img src="gui/images/GUI.png" width="700">
+<br>
+<em>Visual Basic GUI for remote target management</em>
+
+</p>
+
 
 ## 🛠️ Project Overview
-This is an end-to-end embedded system designed for secure, long-range binary file transfer. It bridges the gap between hardware-level encryption and high-level user control, featuring a custom-built PC interface to manage the SAMD21 firmware.
+The primary goal of this project is to provide a **reliable, long-range wireless method** for updating firmware on remote target systems. Designed for harsh RF environments, the system securely transmits binary files using **Speck lightweight encryption** with **RF95 radio modules**. To ensure total data integrity, it incorporates robust **dropped packet recovery** and **hashing** of the staged binary file before execution.
 
 --- 
 
@@ -51,6 +57,17 @@ In the PlatformIO status bar, choose your target environment:
 
 4. **Build and Upload:**
 Click the **PlatformIO: Build** (check icon) **Select** appropriate com port **PlatformIO: Upload** (arrow icon) in the status bar. 
+
+**5. GUI Control**
+* **Scan Ports** and select the Sender COM port.
+* Set baud to **9600** and click **Connect**.
+* If you see *RF Receiver- Good to Go!*, the connection is **successful**.
+* **Select File**: Choose your `.bin` file; the GUI will display the file size.
+* **Write Command**: Type `file transfer` and click **Write Command** (5-second timeout).
+* **Load & Hash**: Clicking **Send Local** hashes the file and transmits it serially to the SAMD21.
+* **Remote Transfer**: Once the hash is verified [**PC - SAMD21**], the "Send Remote" option becomes available. 
+* _**Note:** Ensure the receiver is connected via serial monitor before transmitting._
+
 
 ---
 
@@ -131,7 +148,53 @@ The project was recently migrated to **PlatformIO** to implement professional so
 
 ---
 
-## 📂 System Architecture
+## 📂 System Architecture 
+```mermaid
+%%{init: {
+'theme': 'base',
+'themeVariables': {
+'primaryColor': '#1b1e23',
+'primaryTextColor': '#ffffff',
+'primaryBorderColor': '#4f5b66',
+'lineColor': '#a7adba',
+'fontSize': '16px'
+}
+}}%%
+
+graph LR
+subgraph Station [Control Station]
+GUI[VB.NET GUI]
+end
+
+subgraph TX_Node [Transmitter Node: Gateway]
+TX[SAMD21 TX]
+TX_SD[(Local SD: Binary Stage)]
+end
+
+subgraph RX_Node [Client Node: Target]
+RX[SAMD21 RX]
+RX_SD[(Local SD: UPDATE.bin)]
+Flash[Internal Flash]
+end
+
+%% Data Flow
+GUI -- "Serial/USB" --> TX
+TX -- "Verify & Store" --> TX_SD
+TX_SD -- "rf95 module Transfer\n(Wait-for-Packet Method)" --> RX
+RX -- "Verify & Store" --> RX_SD
+RX_SD -- "SDU: Reset & Write" --> Flash
+
+
+%% Styling
+classDef control fill:#2b303b,stroke:#4a9eff,stroke-width:2px,color:#fff
+classDef hardware fill:#2e3b4e,stroke:#4a9eff,stroke-width:2px,color:#fff
+classDef storage fill:#3a3a3a,stroke:#f96,stroke-width:2px,color:#fff
+
+class GUI control
+class TX,RX hardware
+class TX_SD,RX_SD,Flash storage
+```
+
 *   `src/`: Dedicated build targets for **Transmitter** and **Receiver** roles.
 *   `lib/`: Modularized libraries for RadioHead, Speck, and FileTransfer logic.
 *   `tools/`: Visual Basic source code for the Serial Control Interface.
@@ -156,8 +219,9 @@ The project was recently migrated to **PlatformIO** to implement professional so
 - [x] Modular C++ Library Design.
 - [x] End-to-End Verification: Hardware-in-the-loop (HIL) testing confirmed via GUI.
 - [x] Version Control (Git) with structured refactor history.
-- [ ] *Next Step: 1* Implement standardized code comments using Doxygen
-- [ ] *Next Step: 2* Implementing Native Unit Testing for hashing entropy.
+- [ ] Fail-safe logic for SD card edge cases
+- [ ] Implement standardized code comments using Doxygen
+- [ ] Implementing Native Unit Testing for hashing entropy.
 
 ---
 
