@@ -1,5 +1,5 @@
-# Secure RF95 LoRa Telemetry & Systems Integration
-**Hardware:** SAMD21 (Cortex-M0+) | **Radio:** RF95 (LoRa) | **Security:** Speck Cipher | **Control:** Visual Basic GUI
+# Secure RF95 Telemetry & Systems Integration
+**Hardware:** SAMD21 (Cortex-M0+) | **Radio:** RF95 | **Security:** Speck Cipher | **Control:** Visual Basic GUI
 ---
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Static Badge](https://img.shields.io/badge/Hardware%3A_SAMD21-gray?logo=microchip)](https://ww1.microchip.com/downloads/aemDocuments/documents/MCU32/ProductDocuments/DataSheets/SAM-D21-DA1-Family-Data-Sheet-DS40001882.pdf)
@@ -73,7 +73,7 @@ Click the **PlatformIO: Build** (check icon) **Select** appropriate com port **P
 
 ## 🛡️ Core Security & Networking Features
 *   **Speck Block Cipher:** Lightweight 128-bit encryption optimized for resource-constrained MCUs.
-*   **Modified RadioHead Driver:** Custom-modified `RHEncryptedDriver` to bridge the Speck implementation with the LoRa transport layer.
+*   **Modified RadioHead Driver:** Custom-modified `RHEncryptedDriver` to bridge the Speck implementation with the rf95 module.
 *   **Binary Integrity Hashing:** A custom 32-bit word, multi-bank hashing algorithm designed to verify file integrity "at-rest" on the SD card.
 *   **Secret Management:** Professional isolation of cryptographic keys via `secrets.h` and `.gitignore` protocols.
 
