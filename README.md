@@ -19,6 +19,7 @@
 ## 🛠️ Project Overview
 The primary goal of this project is to provide a **reliable, long-range wireless method** for updating firmware on remote target systems. Designed for harsh RF environments, the system securely transmits binary files using **Speck lightweight encryption** over a **Point-to-Point LoRa RF link** using the standard RadioHead driver. This direct client-to-target architecture maximizes link budget efficiency and removes the software overhead and extra hardware interrupt pin requirements for a full LoRaWAN stack. To ensure total data integrity, it incorporates robust **dropped packet recovery** and **hashing** of the staged binary file before execution.
 
+> ⚠️ **Implementation Notice:** The current architecture handles secure wireless transport, hardware-in-the-loop diagnostic telemetry, and verification of the payload at-rest on the target's SD card. The final stage—integrating the `SDU` (SD Updater) bootloader library to handle bare-metal Flash page-writing—is currently under active development.
 
 --- 
 
