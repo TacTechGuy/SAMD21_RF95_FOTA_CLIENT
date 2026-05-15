@@ -1,5 +1,6 @@
 # Secure RF95 Telemetry & Systems Integration
-**Hardware:** SAMD21 (Cortex-M0+) | **Radio:** RF95 | **Security:** Speck Cipher | **Control:** Visual Basic GUI
+**Hardware:** SAMD21 (Cortex-M0+) | **Radio:** RF95 (Point-to-Point LoRa) | **Security:** Speck Cipher | **Control:** Visual Basic GUI
+
 ---
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Static Badge](https://img.shields.io/badge/Hardware%3A_SAMD21-gray?logo=microchip)](https://ww1.microchip.com/downloads/aemDocuments/documents/MCU32/ProductDocuments/DataSheets/SAM-D21-DA1-Family-Data-Sheet-DS40001882.pdf)
@@ -16,7 +17,8 @@
 
 
 ## 🛠️ Project Overview
-The primary goal of this project is to provide a **reliable, long-range wireless method** for updating firmware on remote target systems. Designed for harsh RF environments, the system securely transmits binary files using **Speck lightweight encryption** with **RF95 radio modules**. To ensure total data integrity, it incorporates robust **dropped packet recovery** and **hashing** of the staged binary file before execution.
+The primary goal of this project is to provide a **reliable, long-range wireless method** for updating firmware on remote target systems. Designed for harsh RF environments, the system securely transmits binary files using **Speck lightweight encryption** over a **Point-to-Point LoRa RF link** using the standard RadioHead driver. This direct client-to-target architecture maximizes link budget efficiency and removes the software overhead and extra hardware interrupt pin requirements for a full LoRaWAN stack. To ensure total data integrity, it incorporates robust **dropped packet recovery** and **hashing** of the staged binary file before execution.
+
 
 --- 
 
